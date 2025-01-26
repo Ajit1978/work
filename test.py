@@ -1,60 +1,40 @@
-import csv
 import pandas as pd
 
-def generate_jewelry_csv(filename="Format.csv"):
-    """
-    Generate a CSV file with jewelry design specifications
-    """
-    # Define the data as a list of rows
-    data = [
-        ["Design Number", "Vendor Style No", "ALTR no.", "Picture", "Metal Kt / Color", "Metal Rate $ P. Oz", 
-         "Metal Wt. in Gm", "Metal Rate in Gms", "Metal Cost", "Finding Cost", "Stone Shape", "Stone Qlty",
-         "Sieve /  MM", "Stone Size", "Stone wt. Total", "Stone Rate", "Stone Cost", "Stone Pcs",
-         "Setting Type", "Setting Rate", "Setting Charges", "Other Charges", "Charges", "", "Details",
-         "Minimum Diam Wt", "Cost", "Price 1"],
-        
-        ["VD163D2-R6605", "D2-RF2A4948", "ZR1584E-210GD-A", "", "14KW", "$2,800", "3.98", "58.81", 
-         "234.08", "", "RD", "FG VS2", "7.3", "1.5", "", "", "$0.00", "1", "prong", "", "$0.00",
-         "CFP", "$10.10", "", "Semi / Comp", "0.6", "$332.75", ""],
-        
-        ["make directly from cad", "RM 5455", "ZR1584SM-60CZ-L", "", "", "", "", "", "", "", "RD",
-         "E VS2", "1.2", "0.008", "0.18", "$120.00", "$21.60", "20", "prong", "$0.50", "$10.00",
-         "J Back", "", "", "Duty/Ship", "", "$23.29", ""],
-        
-        ["", "SIZE US 6.5", "", "", "", "", "", "", "", "", "RD", "E VS2", "1.4", "0.013", "0.26",
-         "$88.00", "$22.88", "20", "prong", "$0.50", "$10.00", "Dia. Han.", "$1.83", "", "Total Imp. Cost",
-         "", "$356.04", "$715"],
-        
-        ["", "", "", "", "", "", "", "", "", "", "RD", "E VS2", "1.7", "0.02", "0.04", "$88.00",
-         "$3.52", "2", "prong", "$0.50", "$1.00", "Miligrain", "", "", "Center", "1.5", "$450.84",
-         "$1,027.00"],
-        
-        ["", "", "", "", "", "", "", "", "", "", "RD", "E VS2", "2", "0.032", "0.064", "$79.00",
-         "$5.06", "2", "prong", "$0.50", "$1.00", "Two Tone", "", "", "Setting", "", "$24.00", "$30.00"],
-        
-        ["", "", "", "", "", "", "", "", "", "", "RD", "E VS2", "2.3", "0.051", "0.102", "$79.00",
-         "$8.06", "2", "prong", "$0.75", "$1.50", "Solder", "", "", "", "", "", ""],
-        
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-         "engraving", "", "", "", "", "", ""],
-        
-        ["Main Category", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-         "", "", "Rhoudium", "$2.00", "", "", "", "", ""],
-        
-        ["Sub Category", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-         "", "", "", "", "", "Total", "2.1", "$831", "$1,772"],
-        
-        ["Collection", "", "", "", "", "", "Total", "234.08", "0", "", "", "", "", "0.646", "",
-         "$61.11", "47", "", "", "$23.50", "", "$13.93", "", "Net Margin", "", "", "", "53%"]
-    ]
-    
-    # Write data to CSV file
-    with open(filename, 'w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerows(data)
-    
-    print(f"CSV file '{filename}' has been generated successfully!")
+# Read the CSV files
+bill_df = pd.read_csv('bill.csv')
+rr_df = pd.read_csv('rr.csv')
+ll_df = pd.read_csv('ll.csv')
 
-# Run the function to generate the CSV
-if __name__ == "__main__":
-    generate_jewelry_csv()
+# Create mapping dictionaries
+rr_sieve_to_weight = {str(row['Avg MM']).strip(): row['AVG WT'] for _, row in rr_df.iterrows()}
+ll_rate_map = dict(zip(ll_df['MM Size'].astype(str), ll_df['ALTR USA Cost/ct']))
+
+# Function to map Sieve/MM to Stone Size
+def map_stone_size(sieve_mm):
+    sieve_str = str(sieve_mm).strip()
+    return rr_sieve_to_weight.get(sieve_str, '')
+
+# Function to map MM Size to Stone Rate
+def map_stone_rate(sieve_mm):
+    mm_str = str(sieve_mm).strip()
+    return ll_rate_map.get(mm_str, '')
+
+# Find the correct column names
+sieve_column = [col for col in bill_df.columns if 'Sieve' in col][0]
+stone_size_column = [col for col in bill_df.columns if 'Stone Size' in col][0]
+stone_rate_column = [col for col in bill_df.columns if 'Stone Rate' in col][0]
+
+# Apply mappings
+bill_df[stone_size_column] = bill_df[sieve_column].apply(map_stone_size)
+bill_df[stone_rate_column] = bill_df[sieve_column].apply(map_stone_rate)
+
+# Save the updated dataframe
+bill_df.to_csv('updated_bill.csv', index=False)
+
+print("CSV file updated successfully. Check 'updated_bill.csv'.")
+
+# Optional: Print unmatched values
+unmatched_size = bill_df[bill_df[stone_size_column] == ''][sieve_column].unique()
+unmatched_rate = bill_df[bill_df[stone_rate_column] == ''][sieve_column].unique()
+print("Unmatched Sieve/MM (Size):", unmatched_size)
+print("Unmatched Sieve/MM (Rate):", unmatched_rate)
